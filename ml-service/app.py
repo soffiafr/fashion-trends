@@ -9,10 +9,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 from PIL import Image
 import io
 import base64
-import torch
-from transformers import CLIPProcessor, CLIPModel
 import unicodedata
 import os
+import requests
 
 
 app = Flask(__name__)
@@ -56,11 +55,9 @@ print("Cargando modelo de embeddings...")
 model_embed = SentenceTransformer('all-MiniLM-L6-v2')
 print("Modelo de embeddings cargado")
 
-# Cargar modelo CLIP para analisis de imagenes
-print("Cargando modelo CLIP para analisis de imagenes...")
-clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-print("Modelo CLIP cargado")
+# IA externa (Hugging Face)
+HF_TOKEN = os.environ.get("HF_TOKEN") 
+CLIP_API_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32"
 
 # Pre-calcular embeddings de estilos disponibles
 available_styles = list(style_encoder.classes_)
@@ -337,7 +334,6 @@ def get_prenda_description(prenda_name):
         if key in normalized or normalized in key:
             return desc
     
-    # Si no hay descripción específica, retornar None
     return None
 
 def get_material_description(material_name):
@@ -365,10 +361,8 @@ def normalize_prenda(prenda):
         descripcion_original = prenda.get('descripcion', '')
         estilo = prenda.get('estilo', '')
         
-        # Intentar obtener descripción específica de la prenda
         descripcion_especifica = get_prenda_description(prenda.get('nombre', ''))
         
-        # Si la descripción original es genérica o vacía, usar la específica
         if descripcion_especifica:
             descripcion = descripcion_especifica
         elif descripcion_original and not descripcion_original.startswith('Exclusividad'):
@@ -393,12 +387,10 @@ def normalize_results(results):
         'tiendas_lujo': []
     }
     
-    # Normalizar prendas con descripciones específicas
     if 'prendas' in results:
         for prenda in results['prendas']:
             normalized['prendas'].append(normalize_prenda(prenda))
     
-    # Normalizar colores con hex
     if 'colores' in results:
         for color in results['colores']:
             normalized['colores'].append({
@@ -406,7 +398,6 @@ def normalize_results(results):
                 'hex': get_color_hex(color)
             })
     
-    # Normalizar materiales con descripción específica
     if 'materiales' in results:
         for material in results['materiales']:
             normalized['materiales'].append({
@@ -414,7 +405,6 @@ def normalize_results(results):
                 'descripcion': get_material_description(material)
             })
     
-    # Tiendas mantener como estan
     if 'tiendas_accesibles' in results:
         normalized['tiendas_accesibles'] = results['tiendas_accesibles']
     
@@ -465,72 +455,28 @@ def parse_time_natural(time_text):
         return num
 
 def analyze_image_style(image_data):
-    """Analiza una imagen y determina su estilo de moda usando CLIP con prompts mejorados"""
+    """Analiza la imagen usando la API externa para ahorrar RAM"""
     try:
         if ',' in image_data:
             image_data = image_data.split(',')[1]
-        
         image_bytes = base64.b64decode(image_data)
-        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-        
-        # Crear múltiples prompts por estilo
-        all_prompts = []
-        style_indices = []
-        
-        for style in available_styles:
-            prompts = STYLE_CLIP_PROMPTS.get(style, [f"persona con estilo {style.lower()}"])
-            for prompt in prompts:
-                all_prompts.append(prompt)
-                style_indices.append(style)
-        
-        # Procesar en batch
-        inputs = clip_processor(
-            text=all_prompts,
-            images=image,
-            return_tensors="pt",
-            padding=True
-        )
-        
-        with torch.no_grad():
-            outputs = clip_model(**inputs)
-            logits_per_image = outputs.logits_per_image
-            probs = logits_per_image.softmax(dim=1)[0]
-        
-        # Agregar probabilidades por estilo
-        style_scores = {}
-        for i, style in enumerate(style_indices):
-            if style not in style_scores:
-                style_scores[style] = []
-            style_scores[style].append(float(probs[i]))
-        
-        # Promediar scores por estilo
-        style_avg_scores = {
-            style: sum(scores) / len(scores) 
-            for style, scores in style_scores.items()
+
+        # Llamada a la API de Hugging Face
+        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+        payload = {
+            "inputs": image_data, 
+            "parameters": {"candidate_labels": available_styles}
         }
         
-        # NORMALIZAR PARA QUE SUMEN 100%
-        total_score = sum(style_avg_scores.values())
-        style_normalized_scores = {
-            style: (score / total_score) if total_score > 0 else 0
-            for style, score in style_avg_scores.items()
-        }
+        response = requests.post(CLIP_API_URL, headers=headers, data=image_bytes)
         
-        # Obtener top 3
-        sorted_styles = sorted(style_normalized_scores.items(), key=lambda x: x[1], reverse=True)[:3]
-        
-        results = [
-            {
-                'style': style,
-                'confidence': score
-            }
-            for style, score in sorted_styles
-        ]
-        
-        return results
-        
+        if response.status_code != 200:
+            return None
+
+        output = response.json()
+        return [{'style': item['label'], 'confidence': item['score']} for item in output[:3]]
     except Exception as e:
-        print(f"Error analizando imagen: {str(e)}")
+        print(f"Error: {e}")
         return None
 
 @app.route('/health', methods=['GET'])

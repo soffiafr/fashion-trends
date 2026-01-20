@@ -5,8 +5,3 @@ flask
 gunicorn
 pandas
 pillow==10.1.0
---find-links https://download.pytorch.org/whl/cpu/torch_stable.html
-torch==2.2.0+cpu
-torchvision==0.17.0+cpu
-transformers==4.35.0
-sentence-transformers==2.2.2
