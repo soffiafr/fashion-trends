@@ -1,7 +1,8 @@
-flask-cors==4.0.0
-numpy>=2.0.0
-scikit-learn>=1.4.0
 flask
+flask-cors
 gunicorn
+numpy<2.0.0
 pandas
-pillow==10.1.0
+scikit-learn
+requests
+Pillow
