@@ -1,4 +1,4 @@
-import  { analyzeImage, predictFashion } from './src/services/api.js';
+import  { analyzeImage, predictFashion } from 'frontend/src/services/api.js';
 import './index.css';
 
 const styleOptions = [
