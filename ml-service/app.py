@@ -31,17 +31,25 @@ print("CARGANDO MODELO DE MODA CON IA...")
 print("=" * 60)
 
 # Cargar modelo entrenado
-with open('fashion_model.pkl', 'rb') as f:
-    model_data = pickle.load(f)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, 'models', 'fashion_model.pkl')
 
-model = model_data['model']
-style_encoder = model_data['style_encoder']
-gender_encoder = model_data['gender_encoder']
-season_encoder = model_data['season_encoder']
-results_map = model_data['results_map']
-idx_to_combination = model_data['idx_to_combination']
+print(f"Intentando cargar modelo desde: {MODEL_PATH}")
+try:
+    with open(MODEL_PATH, 'rb') as f:
+        model_data = pickle.load(f)
+    
+    model = model_data['model']
+    style_encoder = model_data['style_encoder']
+    gender_encoder = model_data['gender_encoder']
+    season_encoder = model_data['season_encoder']
+    results_map = model_data['results_map']
+    idx_to_combination = model_data['idx_to_combination']
 
-print("Modelo de prediccion cargado")
+    print("Modelo de predicción cargado exitosamente")
+except FileNotFoundError:
+    print(f"ERROR: No se encontró el archivo en {MODEL_PATH}")
+    raise
 
 # Cargar modelo de embeddings para busqueda semantica
 print("Cargando modelo de embeddings...")
