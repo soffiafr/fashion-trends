@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_ML_API_URL;
+const API_URL = import.meta.env.API_URL;
 
 export const analyzeImage = async (imageData) => {
   const response = await fetch(`${API_URL}/analyze-image`, {
