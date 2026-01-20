@@ -1,0 +1,2 @@
+- Frontend: React + Vite (Vercel)
+- ML Service: Python + Flask (Railway)
