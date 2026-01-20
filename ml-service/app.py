@@ -53,7 +53,7 @@ except FileNotFoundError:
 
 # Cargar modelo de embeddings para busqueda semantica
 print("Cargando modelo de embeddings...")
-embedding_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+model_embed = SentenceTransformer('all-MiniLM-L6-v2')
 print("Modelo de embeddings cargado")
 
 # Cargar modelo CLIP para analisis de imagenes
