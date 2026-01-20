@@ -4,7 +4,6 @@ import pickle
 import numpy as np
 import re
 from datetime import datetime
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from PIL import Image
 import io
@@ -52,7 +51,7 @@ except FileNotFoundError:
 
 # Cargar modelo de embeddings para busqueda semantica
 print("Cargando modelo de embeddings...")
-model_embed = SentenceTransformer('all-MiniLM-L6-v2')
+model_embed = None
 print("Modelo de embeddings cargado")
 
 # IA externa (Hugging Face)
@@ -61,7 +60,6 @@ CLIP_API_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base
 
 # Pre-calcular embeddings de estilos disponibles
 available_styles = list(style_encoder.classes_)
-style_embeddings = embedding_model.encode(available_styles)
 
 print(f"Estilos disponibles: {available_styles}")
 print(f"Generos disponibles: {list(gender_encoder.classes_)}")
@@ -414,21 +412,21 @@ def normalize_results(results):
     return normalized
 
 def find_similar_style(input_style):
-    """Encuentra el estilo mas similar usando embeddings semanticos"""
+    """Búsqueda de estilo simplificada (sin gastar RAM)"""
     input_style_norm = normalize_text(input_style)
     
-    for idx, style in enumerate(available_styles):
+    # 1. Intenta coincidencia exacta primero
+    for style in available_styles:
         if normalize_text(style) == input_style_norm:
             return style, 1.0
-    
-    input_embedding = embedding_model.encode([input_style])
-    similarities = cosine_similarity(input_embedding, style_embeddings)[0]
-    
-    best_idx = np.argmax(similarities)
-    best_style = available_styles[best_idx]
-    similarity_score = similarities[best_idx]
-    
-    return best_style, similarity_score
+            
+    # 2. Si no hay coincidencia exacta, busca si la palabra está contenida
+    for style in available_styles:
+        if input_style_norm in normalize_text(style):
+            return style, 0.8
+            
+    # 3. Por defecto devuelve el primero si no entiende nada
+    return available_styles[0], 0.1
 
 def parse_time_natural(time_text):
     """Parsea texto de tiempo natural a meses"""
