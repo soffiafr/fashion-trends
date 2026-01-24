@@ -14,20 +14,23 @@ import requests
 import sys
 import numpy
 
-# --- TRUCO DE COMPATIBILIDAD PARA NUMPY 2.0 ---
-# Creamos un alias manual para que el modelo encuentre la ruta antigua
+# COMPATIBILIDAD PARA NUMPY 2.0 
 sys.modules['numpy._core'] = numpy._core
 sys.modules['numpy._core.numeric'] = numpy._core.numeric
-# ----------------------------------------------
 
 app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
         "origins": [
             "http://localhost:5173",
+            "http://localhost:3000",
             "https://*.vercel.app",
-            "https://tu-dominio.com"
-        ]
+            "https://machine-learning-ab.vercel.app",  
+            "https://machine-learning-*.vercel.app"    
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "supports_credentials": False
     }
 })
 
