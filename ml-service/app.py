@@ -14,25 +14,29 @@ import requests
 import sys
 import numpy
 
-# COMPATIBILIDAD PARA NUMPY 2.0 
+# --- TRUCO DE COMPATIBILIDAD PARA NUMPY 2.0 ---
 sys.modules['numpy._core'] = numpy._core
 sys.modules['numpy._core.numeric'] = numpy._core.numeric
 
 app = Flask(__name__)
+
+# CORS CORREGIDO - Permite todos los orígenes
 CORS(app, resources={
     r"/*": {
-        "origins": [
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "https://*.vercel.app",
-            "https://machine-learning-ab.vercel.app",  
-            "https://machine-learning-*.vercel.app"    
-        ],
+        "origins": "*",
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
+        "allow_headers": ["Content-Type", "Authorization"],
         "supports_credentials": False
     }
 })
+
+# Manejo explícito de preflight requests
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    return response
 
 print("=" * 60)
 print("CARGANDO MODELO DE MODA CON IA...")
@@ -108,7 +112,6 @@ COLOR_HEX_MAP = {
 
 # DESCRIPCIONES ESPECÍFICAS POR PRENDA
 PRENDA_DESCRIPTIONS = {
-    # Prendas superiores
     'camisa': 'prenda de vestir con cuello y botones, versátil para looks formales y casuales',
     'camiseta': 'prenda básica de manga corta, esencial en cualquier guardarropa',
     'blusa': 'prenda elegante y femenina, ideal para ocasiones especiales',
@@ -125,8 +128,6 @@ PRENDA_DESCRIPTIONS = {
     'crop top': 'prenda corta que deja al descubierto el abdomen, moderna y atrevida',
     'top': 'prenda superior ligera y versátil',
     'bodysuit': 'prenda ajustada de una pieza, perfecta para estilizar la figura',
-    
-    # Prendas inferiores
     'pantalon': 'prenda que cubre las piernas, disponible en múltiples estilos',
     'pantalones': 'prenda que cubre las piernas, disponible en múltiples estilos',
     'jeans': 'pantalón de mezclilla resistente y atemporal',
@@ -140,8 +141,6 @@ PRENDA_DESCRIPTIONS = {
     'falda larga': 'falda que llega hasta los tobillos, fluida y romántica',
     'leggings': 'pantalón ajustado elástico, cómodo y versátil',
     'joggers': 'pantalón deportivo con puños en los tobillos',
-    
-    # Vestidos y monos
     'vestido': 'prenda de una pieza femenina y elegante',
     'vestido corto': 'vestido por encima de la rodilla, juvenil y fresco',
     'vestido largo': 'vestido que llega hasta los pies, elegante y sofisticado',
@@ -149,8 +148,6 @@ PRENDA_DESCRIPTIONS = {
     'mono': 'prenda de una pieza con pantalón, moderna y práctica',
     'jumpsuit': 'mono elegante de una pieza, perfecto para eventos',
     'maxi dress': 'vestido largo y fluido, ideal para verano',
-    
-    # Calzado
     'zapatillas': 'calzado deportivo cómodo y casual',
     'sneakers': 'zapatillas urbanas modernas y versátiles',
     'botas': 'calzado que cubre el tobillo o más arriba',
@@ -161,8 +158,6 @@ PRENDA_DESCRIPTIONS = {
     'mocasines': 'zapatos sin cordones elegantes y cómodos',
     'oxford': 'zapato clásico con cordones, formal y sofisticado',
     'deportivas': 'calzado deportivo para actividades físicas',
-    
-    # Accesorios
     'gorra': 'accesorio para la cabeza, casual y deportivo',
     'sombrero': 'accesorio elegante para proteger del sol',
     'bufanda': 'accesorio de cuello que aporta calidez y estilo',
@@ -177,8 +172,6 @@ PRENDA_DESCRIPTIONS = {
     'pulsera': 'joya que se lleva en la muñeca',
     'pendientes': 'joyas que se llevan en las orejas',
     'aretes': 'joyas que adornan las orejas',
-    
-    # Prendas técnicas y deportivas
     'chaleco multipockets': 'chaleco funcional con múltiples bolsillos, estilo utility',
     'plumas tecnico': 'chaqueta acolchada técnica, ligera y cálida',
     'chubasquero oversized': 'impermeable holgado de estilo urbano moderno',
@@ -333,11 +326,9 @@ def get_prenda_description(prenda_name):
     """Obtiene la descripción específica de una prenda"""
     normalized = normalize_text(prenda_name)
     
-    # Buscar coincidencia exacta
     if normalized in PRENDA_DESCRIPTIONS:
         return PRENDA_DESCRIPTIONS[normalized]
     
-    # Buscar coincidencia parcial
     for key, desc in PRENDA_DESCRIPTIONS.items():
         if key in normalized or normalized in key:
             return desc
@@ -422,20 +413,17 @@ def normalize_results(results):
     return normalized
 
 def find_similar_style(input_style):
-    """Búsqueda de estilo simplificada (sin gastar RAM)"""
+    """Búsqueda de estilo simplificada"""
     input_style_norm = normalize_text(input_style)
     
-    # 1. Intenta coincidencia exacta primero
     for style in available_styles:
         if normalize_text(style) == input_style_norm:
             return style, 1.0
             
-    # 2. Si no hay coincidencia exacta, busca si la palabra está contenida
     for style in available_styles:
         if input_style_norm in normalize_text(style):
             return style, 0.8
             
-    # 3. Por defecto devuelve el primero si no entiende nada
     return available_styles[0], 0.1
 
 def parse_time_natural(time_text):
@@ -463,13 +451,12 @@ def parse_time_natural(time_text):
         return num
 
 def analyze_image_style(image_data):
-    """Analiza la imagen usando la API externa para ahorrar RAM"""
+    """Analiza la imagen usando la API externa"""
     try:
         if ',' in image_data:
             image_data = image_data.split(',')[1]
         image_bytes = base64.b64decode(image_data)
 
-        # Llamada a la API de Hugging Face
         headers = {"Authorization": f"Bearer {HF_TOKEN}"}
         payload = {
             "inputs": image_data, 
@@ -487,8 +474,11 @@ def analyze_image_style(image_data):
         print(f"Error: {e}")
         return None
 
-@app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET', 'OPTIONS'])
 def health():
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     return jsonify({
         'status': 'OK',
         'model_loaded': True,
@@ -502,9 +492,11 @@ def health():
         'available_seasons': list(season_encoder.classes_)
     })
 
-@app.route('/analyze-image', methods=['POST'])
+@app.route('/analyze-image', methods=['POST', 'OPTIONS'])
 def analyze_image():
-    """Analiza una imagen y devuelve los estilos detectados"""
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
         data = request.json
         image_data = data.get('image')
@@ -531,8 +523,11 @@ def analyze_image():
         print(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/predict', methods=['POST'])
+@app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
         data = request.json
         style_input = data.get('style')
@@ -542,20 +537,17 @@ def predict():
         
         print(f"\n[PREDICCION] Entrada: {style_input} | {gender} | {season} | {time_input}")
         
-        # Busqueda semantica de estilo
         matched_style, similarity = find_similar_style(style_input)
         print(f"Estilo encontrado: '{matched_style}' (similitud: {similarity:.2%})")
         
         if similarity < 0.5:
             print(f"Baja similitud, usando estilo mas cercano")
         
-        # Parsear tiempo natural
         months = 1
         if time_input:
             months = parse_time_natural(time_input)
             print(f"Tiempo parseado: '{time_input}' -> {months} meses")
         
-        # Normalizar genero
         gender_norm = normalize_text(gender)
         gender_classes_norm = [normalize_text(g) for g in gender_encoder.classes_]
         
@@ -565,7 +557,6 @@ def predict():
         except ValueError:
             return jsonify({'error': f'Genero "{gender}" no encontrado'}), 404
         
-        # Calcular estacion basada en el tiempo
         if not season:
             future_month = (datetime.now().month + months - 1) % 12
             season_map = {
@@ -629,10 +620,10 @@ def predict():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("\nAPI de prediccion con IA iniciada en http://localhost:5000")
-    print("   - Health check: http://localhost:5000/health")
-    print("   - Prediccion: POST http://localhost:5000/predict")
-    print("   - Analisis de imagen: POST http://localhost:5000/analyze-image")
+    print("\nAPI de prediccion con IA iniciada")
+    print("   - Health check: /health")
+    print("   - Prediccion: POST /predict")
+    print("   - Analisis de imagen: POST /analyze-image")
     print("\n")
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
