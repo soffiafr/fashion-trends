@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.API_URL;
+// Acceso correcto a variable de entorno en Vite
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const analyzeImage = async (imageData) => {
   const response = await fetch(`${API_URL}/analyze-image`, {
@@ -18,7 +19,10 @@ export const predictFashion = async (data) => {
     body: JSON.stringify(data)
   });
   
-  if (!response.ok) throw new Error('Error en predicción');
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Error en predicción');
+  }
   return response.json();
 };
 
