@@ -1,5 +1,6 @@
 import  { analyzeImage, predictFashion } from './services/api.js';
 import './index.css';
+import React, { useState, useRef, useEffect } from 'react';
 
 const styleOptions = [
   'Cayetano', 'Pijo', 'Urbano/Streetwear', 'Boho-Chic', 

@@ -4,17 +4,17 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-  "dev": "vite",
-  "build": "vite build || exit 0",
-  "preview": "vite preview"
-},
+    "dev": "vite",
+    "build": "vite build || exit 0",
+    "preview": "vite preview"
+  },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.2",
-    "eslint": "^9.9.0"
+    "eslint": "^9.9.0",
+    "vite": "^7.3.1"
   }
 }
