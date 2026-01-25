@@ -1,5 +1,7 @@
-// Acceso correcto a variable de entorno en Vite
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// src/services/api.js
+const API_URL = import.meta.env.VITE_API_URL || 'https://fashion-trends-production.up.railway.app';
+
+console.log('API_URL en api.js:', API_URL);
 
 export const analyzeImage = async (imageData) => {
   const response = await fetch(`${API_URL}/analyze-image`, {

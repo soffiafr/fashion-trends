@@ -198,68 +198,50 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  const analyzeImage = async (imageData) => {
-    setAnalyzing(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('http://localhost:5000/analyze-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageData })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error al analizar la imagen');
-      }
-      
-      const data = await response.json();
-      setDetectedStyles(data.detected_styles);
-      
-      if (data.detected_styles && data.detected_styles.length > 0) {
-        setStyle(data.detected_styles[0].style);
-      }
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setAnalyzing(false);
-    }
 
-    const result = await analyzeImage(imageData);
-  };
-
-  const handlePredict = async () => {
-    setLoading(true);
-    setError(null);
+const analyzeImageHandler = async (imageData) => {
+  setAnalyzing(true);
+  setError(null);
+  
+  try {
+    const data = await analyzeImage(imageData);
+    console.log('Estilos detectados:', data);
+    setDetectedStyles(data.detected_styles);
     
-    try {
-      const predicted = calculatePredictedDate(time);
-      setPredictedDate(predicted);
-      
-      const response = await fetch('http://localhost:5000/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          style: style,
-          gender: gender,
-          time: time,
-          season: ''
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'No se encontraron coincidencias');
-      }
-      
-      const data = await response.json();
-      console.log('Datos recibidos del servidor:', data);
-      setResult(data);
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
+    if (data.detected_styles && data.detected_styles.length > 0) {
+      setStyle(data.detected_styles[0].style);
     }
+  } catch (error) {
+    console.error('Error en análisis de imagen:', error);
+    setError(`Error al analizar imagen: ${error.message}`);
+  } finally {
+    setAnalyzing(false);
+  }
+};
+
+const handlePredict = async () => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const predicted = calculatePredictedDate(time);
+    setPredictedDate(predicted);
+    
+    const data = await predictFashion({ 
+      style: style,
+      gender: gender,
+      time: time,
+      season: ''
+    });
+    
+    console.log('Datos recibidos del servidor:', data);
+    setResult(data);
+  } catch (error) {
+    console.error('Error en predicción:', error);
+    setError(`Error en predicción: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
 
     const data = await predictFashion({
       style: style,
