@@ -1,11 +1,11 @@
-import  { analyzeImage, predictFashion } from './services/api.js';
+import { analyzeImage, predictFashion } from './services/api.js';
 import './index.css';
 import React, { useState, useRef, useEffect } from 'react';
 
 const styleOptions = [
-  'Cayetano', 'Pijo', 'Urbano/Streetwear', 'Boho-Chic', 
-  'Sporty/Gorpcore', 'Minimalista/Scandi', 'Y2K/Grunge', 
-  'Old Money', 'Quiet Luxury', 'Coquette', 'Dark Academia', 
+  'Cayetano', 'Pijo', 'Urbano/Streetwear', 'Boho-Chic',
+  'Sporty/Gorpcore', 'Minimalista/Scandi', 'Y2K/Grunge',
+  'Old Money', 'Quiet Luxury', 'Coquette', 'Dark Academia',
   'Cyberpunk/Techwear'
 ];
 
@@ -26,14 +26,14 @@ export default function App() {
   const [savedPredictions, setSavedPredictions] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [predictedDate, setPredictedDate] = useState('');
-  
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
   const streamRef = useRef(null);
 
   const isReady = style && gender && time;
-  
+
   // revisar error vercel
   console.log('API URL detectada:', import.meta.env.VITE_API_URL);
   console.log('Todas las variables:', import.meta.env);
@@ -47,7 +47,7 @@ export default function App() {
         console.error('Error cargando predicciones guardadas:', e);
       }
     }
-    
+
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -57,14 +57,14 @@ export default function App() {
 
   const calculatePredictedDate = (timeText) => {
     if (!timeText) return '';
-    
+
     const normalizedTime = timeText.toLowerCase();
     const numbers = timeText.match(/\d+/);
     const num = numbers ? parseInt(numbers[0]) : 1;
-    
+
     const now = new Date();
     let futureDate = new Date(now);
-    
+
     if (normalizedTime.includes('dia') || normalizedTime.includes('day')) {
       futureDate.setDate(futureDate.getDate() + num);
     } else if (normalizedTime.includes('semana') || normalizedTime.includes('week')) {
@@ -76,16 +76,16 @@ export default function App() {
     } else {
       futureDate.setMonth(futureDate.getMonth() + num);
     }
-    
-    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
-                    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    
+
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
     return `${months[futureDate.getMonth()]} de ${futureDate.getFullYear()}`;
   };
 
   const savePrediction = () => {
     if (!result) return;
-    
+
     const newPrediction = {
       id: Date.now(),
       date: new Date().toLocaleString('es-ES'),
@@ -95,7 +95,7 @@ export default function App() {
       predictedDate: predictedDate,
       data: result
     };
-    
+
     const updated = [newPrediction, ...savedPredictions];
     setSavedPredictions(updated);
     localStorage.setItem('fashionPredictions', JSON.stringify(updated));
@@ -123,7 +123,7 @@ export default function App() {
       setError(null);
       setCameraReady(false);
       setShowCamera(true);
-      
+
       const constraints = {
         video: {
           facingMode: 'environment',
@@ -132,13 +132,13 @@ export default function App() {
         },
         audio: false
       };
-      
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
+
         videoRef.current.onloadedmetadata = () => {
           videoRef.current.play()
             .then(() => {
@@ -169,86 +169,111 @@ export default function App() {
 
   const captureImage = async () => {
     if (!videoRef.current || !canvasRef.current) return;
-    
+
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
+
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
-    
+
     const imageData = canvas.toDataURL('image/jpeg', 0.8);
     setCapturedImage(imageData);
     stopCamera();
-    await analyzeImage(imageData);
+    await analyzeImageHandler(imageData);
+  };
+
+  const resizeImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
+    return new Promise((resolve) => {
+      let img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        let canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        let ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+    });
   };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const imageData = event.target.result;
-      setCapturedImage(imageData);
-      await analyzeImage(imageData);
+      const originalImage = event.target.result;
+      // Redimensionar para evitar payloads gigantes que fallen en producción
+      const resizedImage = await resizeImage(originalImage);
+      setCapturedImage(resizedImage);
+      await analyzeImageHandler(resizedImage);
     };
     reader.readAsDataURL(file);
   };
 
 
-const analyzeImageHandler = async (imageData) => {
-  setAnalyzing(true);
-  setError(null);
-  
-  try {
-    const data = await analyzeImage(imageData);
-    console.log('Estilos detectados:', data);
-    setDetectedStyles(data.detected_styles);
-    
-    if (data.detected_styles && data.detected_styles.length > 0) {
-      setStyle(data.detected_styles[0].style);
+  const analyzeImageHandler = async (imageData) => {
+    setDetectedStyles(null);
+    setAnalyzing(true);
+    setError(null);
+
+    try {
+      const data = await analyzeImage(imageData);
+      console.log('Estilos detectados:', data);
+      setDetectedStyles(data.detected_styles);
+
+      if (data.detected_styles && data.detected_styles.length > 0) {
+        setStyle(data.detected_styles[0].style);
+      }
+    } catch (error) {
+      console.error('Error en análisis de imagen:', error);
+      setError(`Error al analizar imagen: ${error.message}`);
+    } finally {
+      setAnalyzing(false);
     }
-  } catch (error) {
-    console.error('Error en análisis de imagen:', error);
-    setError(`Error al analizar imagen: ${error.message}`);
-  } finally {
-    setAnalyzing(false);
-  }
-};
+  };
 
-const handlePredict = async () => {
-  setLoading(true);
-  setError(null);
-  
-  try {
-    const predicted = calculatePredictedDate(time);
-    setPredictedDate(predicted);
-    
-    const data = await predictFashion({ 
-      style: style,
-      gender: gender,
-      time: time,
-      season: ''
-    });
-    
-    console.log('Datos recibidos del servidor:', data);
-    setResult(data);
-  } catch (error) {
-    console.error('Error en predicción:', error);
-    setError(`Error en predicción: ${error.message}`);
-  } finally {
-    setLoading(false);
-  }
+  const handlePredict = async () => {
+    setLoading(true);
+    setError(null);
 
-    const data = await predictFashion({
-      style: style,
-      gender: gender,
-      time: time,
-      season: ''
-    });
+    try {
+      const predicted = calculatePredictedDate(time);
+      setPredictedDate(predicted);
+
+      const data = await predictFashion({
+        style: style,
+        gender: gender,
+        time: time,
+        season: ''
+      });
+
+      console.log('Datos recibidos del servidor:', data);
+      setResult(data);
+    } catch (error) {
+      console.error('Error en predicción:', error);
+      setError(`Error en predicción: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetSelection = () => {
@@ -267,7 +292,7 @@ const handlePredict = async () => {
       <div className="header-section">
         <h1 className="main-title">Bienvenida/o a MF</h1>
         <p className="subtitle">Predicción inteligente de tendencias con IA</p>
-        <button 
+        <button
           onClick={() => setShowHistory(!showHistory)}
           className="btn-history"
         >
@@ -294,13 +319,13 @@ const handlePredict = async () => {
                       )}
                     </div>
                     <div className="history-actions">
-                      <button 
+                      <button
                         onClick={() => loadPrediction(pred)}
                         className="btn-load"
                       >
                         Cargar
                       </button>
-                      <button 
+                      <button
                         onClick={() => deletePrediction(pred.id)}
                         className="btn-delete"
                       >
@@ -317,7 +342,7 @@ const handlePredict = async () => {
 
       <div className="image-analysis-section">
         <h3 className="section-title">Análisis visual</h3>
-        
+
         {showCamera && (
           <div className="camera-container">
             {!cameraReady && (
@@ -326,16 +351,16 @@ const handlePredict = async () => {
                 <p>Iniciando cámara...</p>
               </div>
             )}
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
               muted
               className="video-preview"
             />
             <div className="camera-buttons">
-              <button 
-                onClick={captureImage} 
+              <button
+                onClick={captureImage}
                 className="btn-capture"
                 disabled={!cameraReady}
               >
@@ -362,7 +387,7 @@ const handlePredict = async () => {
           </div>
         )}
 
-        {detectedStyles && (
+        {detectedStyles && !showCamera && (
           <div className="detected-styles">
             <h4>Estilos detectados:</h4>
             <div className="style-results">
@@ -370,8 +395,8 @@ const handlePredict = async () => {
                 <div key={idx} className="style-result-item">
                   <span className="style-name">{item.style}</span>
                   <span className="confidence-bar">
-                    <span 
-                      className="confidence-fill" 
+                    <span
+                      className="confidence-fill"
                       style={{ width: `${item.confidence * 100}%` }}
                     ></span>
                   </span>
@@ -385,22 +410,22 @@ const handlePredict = async () => {
         )}
 
         <div className="image-controls">
-          <button 
+          <button
             onClick={showCamera ? stopCamera : startCamera}
             className="btn-camera"
           >
             {showCamera ? 'Cerrar cámara' : 'Abrir cámara'}
           </button>
-          <button 
+          <button
             onClick={() => fileInputRef.current?.click()}
             className="btn-upload"
           >
             Subir imagen
           </button>
-          <input 
+          <input
             ref={fileInputRef}
-            type="file" 
-            accept="image/*" 
+            type="file"
+            accept="image/*"
             onChange={handleFileUpload}
             style={{ display: 'none' }}
           />
@@ -412,7 +437,7 @@ const handlePredict = async () => {
           <label htmlFor="style-input" className="input-label">
             Estilo (escribe o selecciona)
           </label>
-          <input 
+          <input
             type="text"
             id="style-input"
             className="text-input"
@@ -433,7 +458,7 @@ const handlePredict = async () => {
 
         <div className="input-group">
           <label htmlFor="gender-input" className="input-label">Género</label>
-          <select 
+          <select
             id="gender-input"
             className="select-input"
             value={gender}
@@ -450,7 +475,7 @@ const handlePredict = async () => {
           <label htmlFor="time-input" className="input-label">
             Tiempo (escribe en lenguaje natural)
           </label>
-          <input 
+          <input
             type="text"
             id="time-input"
             className="text-input"
@@ -481,8 +506,8 @@ const handlePredict = async () => {
         </div>
       )}
 
-      <button 
-        disabled={!isReady || loading} 
+      <button
+        disabled={!isReady || loading}
         onClick={handlePredict}
         className={`btn-predict ${isReady && !loading ? 'active' : 'disabled'}`}
       >
@@ -498,7 +523,7 @@ const handlePredict = async () => {
         <div className="results-section">
           {result.style_similarity < 0.8 && (
             <div className="similarity-notice">
-              Tu estilo "{result.original_input}" se asoció con "{result.matched_style}" 
+              Tu estilo "{result.original_input}" se asoció con "{result.matched_style}"
               (similitud: {(result.style_similarity * 100).toFixed(0)}%)
             </div>
           )}
@@ -550,9 +575,9 @@ const handlePredict = async () => {
                     {result.colores.map((color, idx) => (
                       <div key={idx} className="color-item-wrapper">
                         <span className="color-item">{color.nombre}</span>
-                        <div 
-                          className="color-preview" 
-                          style={{backgroundColor: color.hex}}
+                        <div
+                          className="color-preview"
+                          style={{ backgroundColor: color.hex }}
                         ></div>
                       </div>
                     ))}
@@ -560,8 +585,8 @@ const handlePredict = async () => {
                 ) : (
                   <p>No hay colores disponibles</p>
                 )}
-                
-                <p style={{marginTop: '20px'}}><strong>Materiales:</strong></p>
+
+                <p style={{ marginTop: '20px' }}><strong>Materiales:</strong></p>
                 {result.materiales && result.materiales.length > 0 ? (
                   <div className="materials-list">
                     {result.materiales.map((material, idx) => (
@@ -594,7 +619,7 @@ const handlePredict = async () => {
                     <p>No hay tiendas accesibles disponibles</p>
                   )}
                 </div>
-                
+
                 <div className="store-category-group">
                   <div className="store-category">
                     <span className="store-bullet">Lujo:</span>
@@ -629,7 +654,7 @@ const handlePredict = async () => {
           <p>Sube una imagen o escribe tu estilo para comenzar</p>
         </div>
       )}
-      
+
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );
