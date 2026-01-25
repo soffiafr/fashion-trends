@@ -33,6 +33,10 @@ export default function App() {
   const streamRef = useRef(null);
 
   const isReady = style && gender && time;
+  
+  // revisar error vercel
+  console.log('API URL detectada:', import.meta.env.VITE_API_URL);
+  console.log('Todas las variables:', import.meta.env);
 
   useEffect(() => {
     const saved = localStorage.getItem('fashionPredictions');
