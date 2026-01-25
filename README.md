@@ -1,2 +1,1 @@
-- Frontend: React + Vite (Vercel)
-- ML Service: Python + Flask (Railway)
+Link Vercel (app deplegada): https://machine-learning-ab.vercel.app/
